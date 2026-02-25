@@ -8,6 +8,20 @@
 [![State](https://img.shields.io/badge/State-Rajasthan-green)](https://en.wikipedia.org/wiki/Rajasthan)
 [![Records](https://img.shields.io/badge/Road%20Segments-2%2C346-red)]()
 [![License](https://img.shields.io/badge/License-MIT-lightgrey)](LICENSE)
+[![Live Map](https://img.shields.io/badge/🗺️%20Live%20Map-View%20on%20GitHub%20Pages-brightgreen)](https://vjspab.github.io/drrp-jodhpur-road-network/)
+
+---
+
+## 🌐 Interactive Map
+
+**➡️ [View Live Map — vjspab.github.io/drrp-jodhpur-road-network](https://vjspab.github.io/drrp-jodhpur-road-network/)**
+
+An interactive satellite map built with **Leaflet.js** + **Esri World Imagery**:
+- 🛰️ Satellite / Hybrid / OpenStreetMap basemap toggle
+- 🎨 Roads colour-coded by category (VR / MDR / SH / NH / ODR)
+- 🖱️ Click any road → popup with full attributes (name, code, length, block, owner)
+- 📊 Live stats bar showing road counts by category
+- 📌 Auto-zooms to Jodhpur district on load
 
 ---
 
