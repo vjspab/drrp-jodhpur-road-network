@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DRRP Jodhpur — Road Network Map</title>
+  <meta name="description" content="Interactive map of the Draft Revised Regional Plan (DRRP) road network for Jodhpur District, Rajasthan. 2,346 road segments with category, code, and block attributes." />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #161b22 0%, #1c2128 100%);
+      border-bottom: 1px solid #30363d;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-shrink: 0;
+      z-index: 1000;
+    }
+    .header-icon {
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg, #f78166, #ff6b35);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(247,129,102,0.3);
+    }
+    .header-text h1 {
+      font-size: 15px; font-weight: 700;
+      background: linear-gradient(90deg, #f78166, #ffb347);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      line-height: 1.2;
+    }
+    .header-text p {
+      font-size: 11px; color: #8b949e; font-weight: 400; margin-top: 1px;
+    }
+    .header-badges {
+      display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; align-items: center;
+    }
+    .badge {
+      background: #21262d; border: 1px solid #30363d;
+      border-radius: 20px; padding: 3px 10px;
+      font-size: 11px; color: #8b949e; font-weight: 500; white-space: nowrap;
+    }
+    .badge span { color: #58a6ff; }
+
+    /* ── Map Container ── */
+    #map-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    #map {
+      width: 100%; height: 100%;
+    }
+
+    /* ── Loading Overlay ── */
+    #loading {
+      position: absolute; inset: 0;
+      background: rgba(13, 17, 23, 0.88);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 9999;
+      backdrop-filter: blur(6px);
+      transition: opacity 0.5s ease;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 52px; height: 52px;
+      border: 4px solid #30363d;
+      border-top-color: #f78166;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin-bottom: 18px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading h2 { font-size: 16px; font-weight: 600; color: #e6edf3; margin-bottom: 6px; }
+    #loading p  { font-size: 12px; color: #8b949e; }
+    #progress-bar-wrap {
+      width: 220px; height: 4px;
+      background: #21262d; border-radius: 4px;
+      margin-top: 16px; overflow: hidden;
+    }
+    #progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #f78166, #ffb347);
+      border-radius: 4px;
+      width: 0%;
+      transition: width 0.4s ease;
+      animation: pulse-bar 2s ease-in-out infinite;
+    }
+    @keyframes pulse-bar { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.3)} }
+
+    /* ── Info Panel ── */
+    #info-panel {
+      position: absolute;
+      bottom: 30px; left: 16px;
+      background: rgba(22, 27, 34, 0.96);
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 14px 16px;
+      z-index: 800;
+      min-width: 220px; max-width: 300px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      display: none;
+    }
+    #info-panel.visible { display: block; }
+    #info-panel h3 {
+      font-size: 12px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: #f78166; margin-bottom: 10px;
+    }
+    .info-row {
+      display: flex; gap: 8px;
+      font-size: 11.5px; margin-bottom: 5px;
+      border-bottom: 1px solid #21262d; padding-bottom: 5px;
+    }
+    .info-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .info-label { color: #8b949e; min-width: 90px; font-weight: 500; }
+    .info-value { color: #e6edf3; font-weight: 400; }
+    .cat-badge {
+      display: inline-block; padding: 1px 6px;
+      border-radius: 4px; font-size: 10px; font-weight: 700;
+    }
+
+    /* ── Stats Bar ── */
+    #stats-bar {
+      position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+      background: rgba(22, 27, 34, 0.96);
+      border: 1px solid #30363d; border-radius: 24px;
+      padding: 7px 18px;
+      display: flex; gap: 20px;
+      z-index: 800; backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+      font-size: 12px;
+    }
+    .stat { display: flex; flex-direction: column; align-items: center; }
+    .stat-val { font-size: 15px; font-weight: 700; color: #f78166; line-height: 1; }
+    .stat-lbl { font-size: 10px; color: #8b949e; margin-top: 2px; }
+
+    /* ── Leaflet popup styling ── */
+    .leaflet-popup-content-wrapper {
+      background: rgba(22, 27, 34, 0.97) !important;
+      border: 1px solid #30363d !important;
+      border-radius: 10px !important;
+      color: #e6edf3 !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+    }
+    .leaflet-popup-tip { background: #161b22 !important; }
+    .leaflet-popup-content { margin: 12px 14px !important; }
+    .popup-title {
+      font-size: 13px; font-weight: 700;
+      color: #f78166; margin-bottom: 8px;
+      border-bottom: 1px solid #30363d; padding-bottom: 6px;
+    }
+    .popup-row {
+      display: flex; justify-content: space-between;
+      font-size: 11.5px; margin-bottom: 4px;
+      gap: 12px;
+    }
+    .popup-key { color: #8b949e; font-weight: 500; }
+    .popup-val { color: #e6edf3; text-align: right; max-width: 160px; }
+    .popup-cat {
+      display: inline-block; margin-top: 6px;
+      padding: 2px 8px; border-radius: 4px;
+      font-size: 10px; font-weight: 700;
+    }
+
+    /* ── Legend ── */
+    #legend {
+      position: absolute; bottom: 30px; right: 16px;
+      z-index: 800;
+      background: rgba(22, 27, 34, 0.96);
+      border: 1px solid #30363d; border-radius: 12px;
+      padding: 12px 14px; min-width: 160px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    #legend h4 {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: #8b949e; margin-bottom: 8px;
+    }
+    .legend-item {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; color: #c9d1d9; margin-bottom: 5px;
+    }
+    .legend-line {
+      width: 28px; height: 4px; border-radius: 2px; flex-shrink: 0;
+    }
+
+    /* Leaflet layer control dark theme */
+    .leaflet-control-layers {
+      background: rgba(22,27,34,0.96) !important;
+      border: 1px solid #30363d !important;
+      border-radius: 10px !important;
+      color: #c9d1d9 !important;
+    }
+    .leaflet-control-layers-toggle {
+      background-color: #161b22 !important;
+    }
+
+    @media (max-width: 600px) {
+      #stats-bar { gap: 12px; padding: 6px 12px; }
+      .stat-val { font-size: 13px; }
+      header { padding: 8px 12px; }
+      .header-badges { display: none; }
+      #legend { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-icon">🗺️</div>
+  <div class="header-text">
+    <h1>DRRP Jodhpur — Road Network</h1>
+    <p>Draft Revised Regional Plan · Jodhpur District, Rajasthan</p>
+  </div>
+  <div class="header-badges">
+    <div class="badge"><span>2,346</span> Roads</div>
+    <div class="badge"><span>KML</span> · WGS 84</div>
+    <div class="badge"><span>PWD</span> Rajasthan</div>
+  </div>
+</header>
+
+<div id="map-wrap">
+  <div id="map"></div>
+
+  <!-- Loading overlay -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <h2>Loading Road Network…</h2>
+    <p>Parsing 2,346 road segments from DRRP KML</p>
+    <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
+  </div>
+
+  <!-- Stats bar -->
+  <div id="stats-bar">
+    <div class="stat"><div class="stat-val" id="s-total">—</div><div class="stat-lbl">Total Roads</div></div>
+    <div class="stat"><div class="stat-val" id="s-vr">—</div><div class="stat-lbl">Village Roads</div></div>
+    <div class="stat"><div class="stat-val" id="s-mdr">—</div><div class="stat-lbl">MDR</div></div>
+    <div class="stat"><div class="stat-val" id="s-other">—</div><div class="stat-lbl">Other</div></div>
+  </div>
+
+  <!-- Road info panel -->
+  <div id="info-panel">
+    <h3>Road Details</h3>
+    <div id="info-content"></div>
+  </div>
+
+  <!-- Legend -->
+  <div id="legend">
+    <h4>Road Category</h4>
+    <div class="legend-item"><div class="legend-line" style="background:#ff6b35"></div>Village Road (VR)</div>
+    <div class="legend-item"><div class="legend-line" style="background:#3b82f6"></div>Major District (MDR)</div>
+    <div class="legend-item"><div class="legend-line" style="background:#a855f7"></div>State Hwy (SH)</div>
+    <div class="legend-item"><div class="legend-line" style="background:#22c55e"></div>National Hwy (NH)</div>
+    <div class="legend-item"><div class="legend-line" style="background:#eab308"></div>Other District (ODR)</div>
+    <div class="legend-item"><div class="legend-line" style="background:#94a3b8"></div>Other / Unknown</div>
+  </div>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Leaflet Omnivore (KML parser) -->
+<script src="https://api.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.3.1/leaflet-omnivore.min.js"></script>
+
+<script>
+// ── Basemaps ──────────────────────────────────────────────────
+const satellite = L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  { attribution: 'Tiles © Esri — Esri, Maxar, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community', maxZoom: 19 }
+);
+
+const streets = L.tileLayer(
+  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  { attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', maxZoom: 19 }
+);
+
+const hybrid = L.layerGroup([
+  satellite,
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, opacity: 0.9 })
+]);
+
+// ── Map Init ─────────────────────────────────────────────────
+const map = L.map('map', {
+  center: [26.52, 72.88],
+  zoom: 9,
+  layers: [satellite],
+  zoomControl: true
+});
+
+L.control.layers(
+  { '🛰️ Satellite': satellite, '🗺️ Satellite + Labels': hybrid, '🏙️ OpenStreetMap': streets },
+  {},
+  { position: 'topright', collapsed: false }
+).addTo(map);
+
+// ── Road colour by category ───────────────────────────────────
+const CAT_COLORS = {
+  'VR':  '#ff6b35',
+  'MDR': '#3b82f6',
+  'SH':  '#a855f7',
+  'NH':  '#22c55e',
+  'ODR': '#eab308',
+};
+function colorFor(cat) {
+  if (!cat) return '#94a3b8';
+  const k = cat.toUpperCase().replace(/\s+/g,'');
+  for (const [key, val] of Object.entries(CAT_COLORS)) {
+    if (k.includes(key)) return val;
+  }
+  return '#94a3b8';
+}
+function weightFor(cat) {
+  if (!cat) return 1.5;
+  const k = cat.toUpperCase();
+  if (k.includes('NH')) return 4;
+  if (k.includes('SH')) return 3;
+  if (k.includes('MDR')) return 2.5;
+  return 1.8;
+}
+
+// ── Parse KML description HTML for attributes ────────────────
+function parseDesc(html) {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const rows = div.querySelectorAll('tr');
+  const data = {};
+  rows.forEach(tr => {
+    const tds = tr.querySelectorAll('td');
+    if (tds.length === 2) {
+      data[tds[0].textContent.trim()] = tds[1].textContent.trim();
+    }
+  });
+  return data;
+}
+
+// ── Stats counters ────────────────────────────────────────────
+let stats = { total: 0, VR: 0, MDR: 0, other: 0 };
+
+function updateStats() {
+  document.getElementById('s-total').textContent = stats.total.toLocaleString();
+  document.getElementById('s-vr').textContent    = stats.VR.toLocaleString();
+  document.getElementById('s-mdr').textContent   = stats.MDR.toLocaleString();
+  document.getElementById('s-other').textContent = stats.other.toLocaleString();
+}
+
+// ── Popup builder ─────────────────────────────────────────────
+function buildPopup(attrs) {
+  const cat  = attrs['Road_Cat']  || '—';
+  const col  = colorFor(cat);
+  const name = attrs['Road__Name'] || attrs['Road_Name'] || '—';
+  return `
+    <div class="popup-title">${name}</div>
+    <div class="popup-row"><span class="popup-key">Road Code</span><span class="popup-val">${attrs['Road_Code']||'—'}</span></div>
+    <div class="popup-row"><span class="popup-key">Category</span><span class="popup-val">${attrs['Category']||'—'}</span></div>
+    <div class="popup-row"><span class="popup-key">Length</span><span class="popup-val">${attrs['Length']||'—'} km</span></div>
+    <div class="popup-row"><span class="popup-key">Owner</span><span class="popup-val">${attrs['Road_Owner']||'—'}</span></div>
+    <div class="popup-row"><span class="popup-key">Block</span><span class="popup-val">${attrs['Block_Name']||'—'}</span></div>
+    <div class="popup-row"><span class="popup-key">ER ID</span><span class="popup-val">${attrs['ER_ID']||'—'}</span></div>
+    <span class="popup-cat" style="background:${col}22;color:${col};border:1px solid ${col}55;">${cat}</span>
+  `;
+}
+
+// ── Load progress animation ───────────────────────────────────
+let progressVal = 0;
+const progressInterval = setInterval(() => {
+  progressVal = Math.min(progressVal + Math.random() * 8, 88);
+  document.getElementById('progress-bar').style.width = progressVal + '%';
+}, 200);
+
+// ── Load KML via omnivore ─────────────────────────────────────
+const KML_URL = 'DRRP_Jodhpur.kml';
+
+const customLayer = L.geoJson(null, {
+  style: feature => {
+    const desc = feature.properties?.description || '';
+    const attrs = parseDesc(desc);
+    const cat = attrs['Road_Cat'] || '';
+    return {
+      color:   colorFor(cat),
+      weight:  weightFor(cat),
+      opacity: 0.85,
+    };
+  },
+  onEachFeature: (feature, layer) => {
+    const desc  = feature.properties?.description || '';
+    const attrs = parseDesc(desc);
+    const cat   = (attrs['Road_Cat'] || '').toUpperCase();
+
+    // Stats
+    stats.total++;
+    if (cat.includes('VR'))        stats.VR++;
+    else if (cat.includes('MDR'))  stats.MDR++;
+    else                           stats.other++;
+
+    // Hover highlight
+    layer.on('mouseover', function() {
+      this.setStyle({ weight: this.options.weight + 2, opacity: 1 });
+    });
+    layer.on('mouseout', function() {
+      this.setStyle({ weight: this.options.weight - 2, opacity: 0.85 });
+    });
+
+    // Popup on click
+    layer.on('click', function(e) {
+      L.popup({ maxWidth: 300 })
+        .setLatLng(e.latlng)
+        .setContent(buildPopup(attrs))
+        .openOn(map);
+    });
+  }
+});
+
+const kmlLayer = omnivore.kml(KML_URL, null, customLayer)
+  .on('ready', function() {
+    clearInterval(progressInterval);
+    document.getElementById('progress-bar').style.width = '100%';
+    setTimeout(() => {
+      const loadingEl = document.getElementById('loading');
+      loadingEl.classList.add('hidden');
+      setTimeout(() => loadingEl.remove(), 500);
+    }, 400);
+
+    updateStats();
+
+    // Fit map to data bounds
+    try {
+      const bounds = kmlLayer.getBounds();
+      if (bounds.isValid()) map.fitBounds(bounds, { padding: [30, 30] });
+    } catch(e) {}
+  })
+  .on('error', function(err) {
+    clearInterval(progressInterval);
+    document.getElementById('loading').innerHTML = `
+      <div style="text-align:center;padding:20px;">
+        <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
+        <div style="font-size:15px;font-weight:600;color:#f78166;margin-bottom:8px;">Could not load KML</div>
+        <div style="font-size:12px;color:#8b949e;">Run a local server or check CORS settings.</div>
+        <div style="font-size:11px;color:#8b949e;margin-top:10px;">
+          Try: <code style="background:#21262d;padding:2px 6px;border-radius:4px;">python3 -m http.server 8000</code>
+        </div>
+      </div>`;
+    console.error('KML load error:', err);
+  })
+  .addTo(map);
+
+// ── Attribution ───────────────────────────────────────────────
+map.attributionControl.setPrefix(
+  '<a href="https://github.com/vjspab/drrp-jodhpur-road-network" target="_blank">DRRP Jodhpur</a>'
+);
+</script>
+</body>
+</html>
