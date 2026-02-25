@@ -1,0 +1,40 @@
+# GIS output files (generated, not source)
+*.geojson
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.qpj
+
+# QGIS project files (personal, not shared)
+*.qgs
+*.qgz
+
+# ArcGIS files
+*.mxd
+*.aprx
+*.gdb/
+
+# Processed outputs
+output/
+exports/
+converted/
+
+# macOS
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
