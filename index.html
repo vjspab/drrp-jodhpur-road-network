@@ -513,21 +513,39 @@
             try {
                 setProgress(10, 'Fetching KML file…');
                 
-                let resp;
-                try {
-                    // Try to load it locally first (works for GitHub Pages or local HTTP servers)
-                    resp = await fetch('DRRP_Jodhpur.kml');
-                    if (!resp.ok) throw new Error('Local fetch failed');
-                } catch (e) {
-                    // Fallback to raw GitHub content if viewing directly through HTML previewers or locally
-                    console.log("Local fetch failed, falling back to GitHub Raw URL...");
-                    const rawUrl = 'https://raw.githubusercontent.com/vjspab/drrp-jodhpur-road-network/main/DRRP_Jodhpur.kml';
-                    resp = await fetch(rawUrl);
-                    if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+                const urlsToTry = [
+                    'DRRP_Jodhpur.kml',
+                    'https://raw.githubusercontent.com/vjspab/drrp-jodhpur-road-network/main/DRRP_Jodhpur.kml',
+                    'https://raw.githubusercontent.com/vjspab/drrp-jodhpur-road-network/master/DRRP_Jodhpur.kml',
+                    'https://raw.githubusercontent.com/vjspab/drrp-jodhpur-road-network/beaa8aeaaed4c26fdfd74b077d1241aa898df080/DRRP_Jodhpur.kml'
+                ];
+
+                let text = null;
+                let success = false;
+
+                for (const url of urlsToTry) {
+                    try {
+                        const resp = await fetch(url);
+                        if (resp.ok) {
+                            const fetchedText = await resp.text();
+                            // Ensure the response is actually a KML/XML file and not a GitHub HTML page
+                            if (fetchedText && fetchedText.includes('<kml')) {
+                                text = fetchedText;
+                                success = true;
+                                console.log(`Successfully loaded KML from: ${url}`);
+                                break;
+                            }
+                        }
+                    } catch (e) {
+                        console.log(`Fetch failed for ${url}:`, e);
+                    }
+                }
+
+                if (!success || !text) {
+                    throw new Error('Failed to load KML from local path and GitHub raw fallback URLs. Please check branch names and repository visibility.');
                 }
 
                 setProgress(30, 'Reading data stream…');
-                const text = await resp.text();
 
                 setProgress(55, 'Parsing KML…');
                 // Yield to browser so progress renders
