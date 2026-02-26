@@ -1,6 +1,6 @@
 # 🗺️ DRRP Jodhpur — Road Network GIS Dataset
 
-> **Draft Revised Regional Plan (DRRP) — Jodhpur District, Rajasthan**
+> **PWD District Regional Road Plan (DRRP) — Jodhpur District, Rajasthan**
 > Road network dataset in KML format for GIS analysis, transport planning, and regional development studies.
 
 [![Format](https://img.shields.io/badge/Format-KML%20%2F%20GIS-blue?logo=googlemaps)](https://en.wikipedia.org/wiki/Keyhole_Markup_Language)
@@ -27,7 +27,7 @@ An interactive satellite map built with **Leaflet.js** + **Esri World Imagery**:
 
 ## 📋 Overview
 
-This repository contains the **DRRP (Draft Revised Regional Plan) road network dataset for Jodhpur District, Rajasthan**, published as part of regional transport infrastructure planning. The data is provided in **KML (Keyhole Markup Language)** format and is compatible with Google Earth, QGIS, ArcGIS, and other GIS tools.
+This repository contains the **PWD District Regional Road Plan (DRRP) road network dataset for Jodhpur District, Rajasthan**. The data is provided in **KML (Keyhole Markup Language)** format and is compatible with Google Earth, QGIS, ArcGIS, and other GIS tools.
 
 ### Key Facts
 
@@ -105,7 +105,7 @@ Each road Placemark contains the following attributes in its description popup:
 
 ### ArcGIS
 1. Use `Add Data → Add Basemap` or `KML to Layer` geoprocessing tool
-2. Or simply drag-and-drop the `.kml` file into ArcMap/ArcGIS Pro
+2. Or simply drag-and-drop/import the `.kml` file into ArcMap/ArcGIS Pro
 
 ### Python (GeoPandas)
 ```python
@@ -135,9 +135,7 @@ ogr2ogr -f "ESRI Shapefile" output_shapefile/ DRRP_Jodhpur.kml
 
 ## 📍 Spatial Coverage
 
-The dataset covers the **Jodhpur District** of Rajasthan, India, including multiple administrative blocks such as:
-- Balesar
-- And other blocks across Jodhpur district
+The dataset covers the **Jodhpur District** of Rajasthan, India.
 
 **Approximate Bounding Box:**
 - Longitude: ~72.4° E to ~73.0° E
@@ -145,11 +143,7 @@ The dataset covers the **Jodhpur District** of Rajasthan, India, including multi
 
 ---
 
-## 🏗️ About DRRP
-
-The **Draft Revised Regional Plan (DRRP)** is a statutory planning document prepared by the **Rajasthan Urban Improvement Trust (UIT) / JDA (Jodhpur Development Authority)** under the Rajasthan Urban Improvement Trust Act. It defines land use, road network, infrastructure, and development zones for the Jodhpur region.
-
-This road network layer captures the existing and proposed road hierarchy as part of the regional transport planning framework.
+This road network layer captures the existing and proposed road hierarchy as part of the PWD District Regional Road Plan (DRRP).
 
 ---
 
@@ -166,8 +160,6 @@ This road network layer captures the existing and proposed road hierarchy as par
 ## 📜 License
 
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
-
-The GIS dataset is derived from the **Draft Revised Regional Plan, Jodhpur** and is intended for research, planning, and educational use.
 
 ---
 
