@@ -512,8 +512,19 @@
 
             try {
                 setProgress(10, 'Fetching KML file…');
-                const resp = await fetch('DRRP_Jodhpur.kml');
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+                
+                let resp;
+                try {
+                    // Try to load it locally first (works for GitHub Pages or local HTTP servers)
+                    resp = await fetch('DRRP_Jodhpur.kml');
+                    if (!resp.ok) throw new Error('Local fetch failed');
+                } catch (e) {
+                    // Fallback to raw GitHub content if viewing directly through HTML previewers or locally
+                    console.log("Local fetch failed, falling back to GitHub Raw URL...");
+                    const rawUrl = 'https://raw.githubusercontent.com/vjspab/drrp-jodhpur-road-network/main/DRRP_Jodhpur.kml';
+                    resp = await fetch(rawUrl);
+                    if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+                }
 
                 setProgress(30, 'Reading data stream…');
                 const text = await resp.text();
