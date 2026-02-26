@@ -157,8 +157,6 @@
             color: #58a6ff;
             margin-top: 8px;
             min-height: 16px;
-            text-align: center;
-            max-width: 340px;
         }
 
         #progress-bar-wrap {
@@ -317,63 +315,6 @@
             color: #c9d1d9 !important;
         }
 
-        /* Error box */
-        .error-box {
-            text-align: center;
-            padding: 24px;
-            max-width: 400px;
-        }
-
-        .error-box .error-icon {
-            font-size: 40px;
-            margin-bottom: 12px;
-        }
-
-        .error-box .error-title {
-            font-size: 15px;
-            font-weight: 600;
-            color: #f78166;
-            margin-bottom: 8px;
-        }
-
-        .error-box .error-msg {
-            font-size: 12px;
-            color: #8b949e;
-            margin-bottom: 10px;
-            word-break: break-all;
-        }
-
-        .error-box .error-hint {
-            font-size: 11px;
-            color: #58a6ff;
-            line-height: 1.6;
-        }
-
-        .error-box code {
-            background: #21262d;
-            padding: 3px 8px;
-            border-radius: 4px;
-            margin-top: 6px;
-            display: inline-block;
-            color: #e6edf3;
-        }
-
-        .retry-btn {
-            margin-top: 14px;
-            background: #f78166;
-            color: #0d1117;
-            border: none;
-            border-radius: 8px;
-            padding: 7px 20px;
-            font-size: 12px;
-            font-weight: 700;
-            cursor: pointer;
-        }
-
-        .retry-btn:hover {
-            background: #ffb347;
-        }
-
         @media (max-width: 600px) {
             .header-badges {
                 display: none;
@@ -412,7 +353,7 @@
         <div id="loading">
             <div class="spinner"></div>
             <h2>Loading Road Network…</h2>
-            <p>Fetching and parsing DRRP Jodhpur KML (~13 MB)</p>
+            <p>Fetching and parsing DRRP Jodhpur KML (13 MB)</p>
             <div id="load-status">Connecting…</div>
             <div id="progress-bar-wrap">
                 <div id="progress-bar"></div>
@@ -464,31 +405,19 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        /* ═══════════════════════════════════════════════════════════
-           CONFIG — edit only these lines if the repo ever changes
-           ═══════════════════════════════════════════════════════════ */
-        const GITHUB_USER   = 'vjspab';
-        const GITHUB_REPO   = 'drrp-jodhpur-road-network';
-        const GITHUB_BRANCH = 'main';          // change to 'master' if needed
-        const KML_FILENAME  = 'DRRP_Jodhpur.kml';
-
-        /*
-         * Candidate URLs tried IN ORDER.
-         * jsDelivr is tried first — it is a public CDN that mirrors
-         * GitHub and always sends correct CORS headers.
-         * raw.githubusercontent.com is second.
-         * The relative path is last (works when served by GitHub Pages).
-         */
-        const KML_URLS = [
-            // 1️⃣  jsDelivr CDN — best CORS support, globally cached
-            `https://cdn.jsdelivr.net/gh/${GITHUB_USER}/${GITHUB_REPO}@${GITHUB_BRANCH}/${KML_FILENAME}`,
-            // 2️⃣  GitHub raw — usually works, occasionally rate-limited
-            `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${KML_FILENAME}`,
-            // 3️⃣  Relative path — works on GitHub Pages / local server
-            KML_FILENAME,
-        ];
-        /* ═══════════════════════════════════════════════════════════ */
-
+        /* ================================================================
+           FIX SUMMARY
+           ----------------------------------------------------------------
+           1. fetch() now tries a chain of URLs:
+              • relative path  (works on GitHub Pages & local server)
+              • raw.githubusercontent  main branch  (universal fallback)
+              • raw.githubusercontent  master branch
+           2. Default XML namespace is stripped before parsing so that
+              querySelectorAll('Placemark') etc. actually match elements.
+           3. Attribute extraction now reads BOTH
+              <ExtendedData>/<SimpleData> (GIS exports)  AND
+              <description> HTML tables  (Google Earth exports).
+           ================================================================ */
 
         // ── Basemaps ──────────────────────────────────────────────────
         const satellite = L.tileLayer(
@@ -506,31 +435,17 @@
         const hybrid = L.layerGroup([satellite, hybridLabels]);
 
         const map = L.map('map', {
-            center: [26.52, 72.88],
-            zoom: 9,
-            layers: [satellite],
-            zoomControl: true
+            center: [26.52, 72.88], zoom: 9,
+            layers: [satellite], zoomControl: true
         });
 
         L.control.layers(
-            {
-                '🛰️ Satellite': satellite,
-                '🛰️ Satellite + Labels': hybrid,
-                '🏙️ OpenStreetMap': streets
-            },
-            {},
-            { position: 'topright', collapsed: false }
+            { '🛰️ Satellite': satellite, '🛰️ Satellite + Labels': hybrid, '🏙️ OpenStreetMap': streets },
+            {}, { position: 'topright', collapsed: false }
         ).addTo(map);
 
-
         // ── Colour helpers ────────────────────────────────────────────
-        const CAT_COLORS = {
-            VR:  '#ff6b35',
-            MDR: '#3b82f6',
-            SH:  '#a855f7',
-            NH:  '#22c55e',
-            ODR: '#eab308'
-        };
+        const CAT_COLORS = { VR: '#ff6b35', MDR: '#3b82f6', SH: '#a855f7', NH: '#22c55e', ODR: '#eab308' };
 
         function colorFor(cat) {
             if (!cat) return '#94a3b8';
@@ -540,319 +455,230 @@
             }
             return '#94a3b8';
         }
-
         function weightFor(cat) {
             if (!cat) return 1.5;
             const k = cat.toUpperCase();
-            if (k.includes('NH') || k.includes('SH'))  return 3.5;
+            if (k.includes('NH') || k.includes('SH')) return 3.5;
             if (k.includes('MDR') || k.includes('ODR')) return 2.5;
             return 1.8;
         }
 
-
-        // ── Parse KML description table ───────────────────────────────
-        function parseDesc(htmlStr) {
-            const d = {};
-            try {
-                const tmp = document.createElement('div');
-                tmp.innerHTML = htmlStr;
-                tmp.querySelectorAll('tr').forEach(tr => {
-                    const tds = tr.querySelectorAll('td');
-                    if (tds.length === 2)
-                        d[tds[0].textContent.trim()] = tds[1].textContent.trim();
-                });
-            } catch (e) { /* ignore */ }
-            return d;
-        }
-
-
         // ── KML coordinate parser ─────────────────────────────────────
         function coordsToLatLngs(coordText) {
             return coordText.trim().split(/\s+/).map(c => {
-                const [lon, lat] = c.split(',').map(Number);
-                return [lat, lon];
+                const parts = c.split(',').map(Number);
+                return [parts[1], parts[0]];           // lat, lon
             }).filter(p => !isNaN(p[0]) && !isNaN(p[1]));
         }
 
+        // ── Attribute extraction (handles BOTH KML styles) ────────────
+        function parseAttributes(pm) {
+            const a = {};
+
+            // ① ExtendedData > SchemaData > SimpleData   (QGIS / GIS exports)
+            pm.querySelectorAll('SimpleData').forEach(sd => {
+                const n = sd.getAttribute('name');
+                if (n) a[n] = sd.textContent.trim();
+            });
+
+            // ② ExtendedData > Data > value
+            pm.querySelectorAll('Data').forEach(d => {
+                const n = d.getAttribute('name');
+                const v = d.querySelector('value');
+                if (n && v) a[n] = v.textContent.trim();
+            });
+
+            // ③ description HTML table   (Google Earth style)
+            const descEl = pm.querySelector('description');
+            if (descEl) {
+                const raw = descEl.textContent || '';
+                if (raw.includes('<')) {                 // looks like HTML
+                    const div = document.createElement('div');
+                    div.innerHTML = raw;
+                    div.querySelectorAll('tr').forEach(tr => {
+                        const tds = tr.querySelectorAll('td');
+                        if (tds.length >= 2)
+                            a[tds[0].textContent.trim()] = tds[1].textContent.trim();
+                    });
+                }
+            }
+
+            // ④ Fallback: <name> element
+            if (!a['Name'] && !a['Road_Name'] && !a['Road__Name']) {
+                const nameEl = pm.querySelector('name');
+                if (nameEl) a['Name'] = nameEl.textContent.trim();
+            }
+
+            return a;
+        }
 
         // ── Popup HTML ────────────────────────────────────────────────
         function buildPopup(a) {
-            const cat  = a['Road_Cat'] || '—';
-            const col  = colorFor(cat);
+            const cat = a['Road_Cat'] || a['ROAD_CAT'] || '—';
+            const col = colorFor(cat);
             const name = a['Road__Name'] || a['Road_Name'] || a['Name'] || '—';
             return `
-                <div class="popup-title">${name}</div>
-                <div class="popup-row">
-                    <span class="popup-key">Code</span>
-                    <span class="popup-val">${a['Road_Code'] || '—'}</span>
-                </div>
-                <div class="popup-row">
-                    <span class="popup-key">Category</span>
-                    <span class="popup-val">${a['Category'] || cat}</span>
-                </div>
-                <div class="popup-row">
-                    <span class="popup-key">Length</span>
-                    <span class="popup-val">${a['Length'] || '—'} km</span>
-                </div>
-                <div class="popup-row">
-                    <span class="popup-key">Owner</span>
-                    <span class="popup-val">${a['Road_Owner'] || '—'}</span>
-                </div>
-                <div class="popup-row">
-                    <span class="popup-key">Block</span>
-                    <span class="popup-val">${a['Block_Name'] || '—'}</span>
-                </div>
-                <span class="popup-cat"
-                      style="background:${col}22;color:${col};border:1px solid ${col}44;">
-                    ${cat}
-                </span>`;
+    <div class="popup-title">${name}</div>
+    <div class="popup-row"><span class="popup-key">Code</span>    <span class="popup-val">${a['Road_Code'] || '—'}</span></div>
+    <div class="popup-row"><span class="popup-key">Category</span><span class="popup-val">${a['Category'] || cat}</span></div>
+    <div class="popup-row"><span class="popup-key">Length</span>  <span class="popup-val">${a['Length'] || '—'} km</span></div>
+    <div class="popup-row"><span class="popup-key">Owner</span>   <span class="popup-val">${a['Road_Owner'] || '—'}</span></div>
+    <div class="popup-row"><span class="popup-key">Block</span>   <span class="popup-val">${a['Block_Name'] || '—'}</span></div>
+    <span class="popup-cat" style="background:${col}22;color:${col};border:1px solid ${col}44;">${cat}</span>`;
         }
-
 
         // ── Stats ─────────────────────────────────────────────────────
-        const stats = { total: 0, VR: 0, MDR: 0, NH: 0 };
-
+        let stats = { total: 0, VR: 0, MDR: 0, NH: 0 };
         function updateStats() {
             document.getElementById('s-total').textContent = stats.total.toLocaleString();
-            document.getElementById('s-vr').textContent   = stats.VR.toLocaleString();
-            document.getElementById('s-mdr').textContent  = stats.MDR.toLocaleString();
-            document.getElementById('s-nh').textContent   = stats.NH.toLocaleString();
+            document.getElementById('s-vr').textContent = stats.VR.toLocaleString();
+            document.getElementById('s-mdr').textContent = stats.MDR.toLocaleString();
+            document.getElementById('s-nh').textContent = stats.NH.toLocaleString();
         }
-
 
         // ── Progress helpers ──────────────────────────────────────────
         function setProgress(pct, msg) {
             document.getElementById('progress-bar').style.width = pct + '%';
             if (msg) document.getElementById('load-status').textContent = msg;
         }
-
         function hideLoading() {
             const el = document.getElementById('loading');
             el.classList.add('hidden');
             setTimeout(() => el.remove(), 600);
         }
 
-        function showError(title, detail, hint) {
-            document.getElementById('loading').innerHTML = `
-                <div class="error-box">
-                    <div class="error-icon">⚠️</div>
-                    <div class="error-title">${title}</div>
-                    <div class="error-msg">${detail}</div>
-                    <div class="error-hint">${hint}</div>
-                    <button class="retry-btn" onclick="location.reload()">🔄 Retry</button>
-                </div>`;
-        }
+        // ── FIX #1 — Fetch with fallback URL chain ───────────────────
+        async function fetchKML() {
+            const URLS = [
+                'DRRP_Jodhpur.kml',                                                                        // GitHub Pages / local
+                'https://raw.githubusercontent.com/vjspab/drrp-jodhpur-road-network/main/DRRP_Jodhpur.kml', // main branch
+                'https://raw.githubusercontent.com/vjspab/drrp-jodhpur-road-network/master/DRRP_Jodhpur.kml'// master branch
+            ];
 
-
-        // ── Fetch with fallback URLs ───────────────────────────────────
-        /*
-         * Tries each URL in KML_URLS in sequence.
-         * Returns the response text of the first successful fetch.
-         * Throws if all URLs fail.
-         */
-        async function fetchWithFallback(urls) {
-            const errors = [];
-
-            for (let i = 0; i < urls.length; i++) {
-                const url = urls[i];
-                const label = i === 0 ? 'jsDelivr CDN'
-                            : i === 1 ? 'raw.githubusercontent.com'
-                            : 'relative path';
+            for (const url of URLS) {
                 try {
-                    setProgress(10 + i * 5, `Trying ${label}…`);
-                    console.info(`[KML] Attempting fetch from: ${url}`);
-
-                    const resp = await fetch(url, { cache: 'force-cache' });
-
-                    if (!resp.ok) {
-                        throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+                    const label = url.startsWith('http') ? 'raw GitHub' : 'relative path';
+                    setProgress(12, `Trying ${label}…`);
+                    const resp = await fetch(url);
+                    if (!resp.ok) { console.warn(`${url} → HTTP ${resp.status}`); continue; }
+                    const txt = await resp.text();
+                    // Quick sanity: is this actually KML / XML?
+                    if (txt.includes('<kml') || txt.includes('<Placemark') || txt.includes('<Document')) {
+                        console.log(`KML loaded from: ${url}  (${(txt.length / 1048576).toFixed(1)} MB)`);
+                        return txt;
                     }
-
-                    // Stream with progress if Content-Length is known
-                    const contentLength = resp.headers.get('Content-Length');
-                    const total = contentLength ? parseInt(contentLength, 10) : 0;
-
-                    const reader = resp.body.getReader();
-                    const chunks = [];
-                    let received = 0;
-
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        chunks.push(value);
-                        received += value.length;
-
-                        if (total > 0) {
-                            // Show download progress between 20 % and 50 %
-                            const dlPct = 20 + Math.round((received / total) * 30);
-                            setProgress(dlPct,
-                                `Downloading… ${(received / 1_048_576).toFixed(1)} MB` +
-                                ` / ${(total / 1_048_576).toFixed(1)} MB`);
-                        } else {
-                            setProgress(30,
-                                `Downloading… ${(received / 1_048_576).toFixed(1)} MB received`);
-                        }
-                    }
-
-                    // Decode Uint8Array chunks → string
-                    const allChunks = new Uint8Array(received);
-                    let position = 0;
-                    for (const chunk of chunks) {
-                        allChunks.set(chunk, position);
-                        position += chunk.length;
-                    }
-                    const text = new TextDecoder('utf-8').decode(allChunks);
-
-                    console.info(`[KML] ✓ Loaded from ${label} (${(received / 1_048_576).toFixed(2)} MB)`);
-                    return text;
-
-                } catch (err) {
-                    console.warn(`[KML] ✗ Failed (${label}): ${err.message}`);
-                    errors.push(`${label}: ${err.message}`);
+                    console.warn(`${url} → response is not KML`);
+                } catch (e) {
+                    console.warn(`${url} → ${e.message}`);
                 }
             }
-
-            // All URLs failed
-            throw new Error(
-                'All sources failed:\n' + errors.map((e, i) => `  ${i + 1}. ${e}`).join('\n')
-            );
+            throw new Error('Could not fetch DRRP_Jodhpur.kml from any source');
         }
 
-
-        // ── KML → map ────────────────────────────────────────────────
+        // ── Main loader ──────────────────────────────────────────────
         async function loadKML() {
             const roadLayer = L.layerGroup().addTo(map);
 
             try {
-                // ── 1. Fetch ──────────────────────────────────────────
-                const text = await fetchWithFallback(KML_URLS);
+                setProgress(5, 'Fetching KML file…');
+                const rawText = await fetchKML();
 
-                // ── 2. Parse ──────────────────────────────────────────
-                setProgress(52, 'Parsing KML document…');
-                await new Promise(r => setTimeout(r, 30));   // let UI repaint
+                setProgress(35, 'Preparing XML parser…');
+                await new Promise(r => setTimeout(r, 20));
 
-                const parser  = new DOMParser();
-                const kmlDoc  = parser.parseFromString(text, 'application/xml');
+                // ── FIX #2 — Strip default XML namespace so querySelector works ──
+                const text = rawText.replace(/\s+xmlns="[^"]*"/g, '');
 
-                // Check for XML parse errors
-                const parseErr = kmlDoc.querySelector('parsererror');
-                if (parseErr) {
-                    throw new Error('XML parse error — file may be malformed or truncated.');
-                }
+                const parser = new DOMParser();
+                const kmlDoc = parser.parseFromString(text, 'application/xml');
 
-                const placemarks = Array.from(kmlDoc.querySelectorAll('Placemark'));
+                // Detect XML parse failure
+                const pe = kmlDoc.querySelector('parsererror');
+                if (pe) console.warn('XML parse note:', pe.textContent.substring(0, 300));
 
-                if (placemarks.length === 0) {
-                    throw new Error(
-                        'No <Placemark> elements found. ' +
-                        'The KML may use a namespace prefix — check the file structure.'
-                    );
-                }
+                const placemarks = kmlDoc.querySelectorAll('Placemark');
 
-                setProgress(60, `Found ${placemarks.length} placemarks. Rendering…`);
-                await new Promise(r => setTimeout(r, 30));
+                if (placemarks.length === 0)
+                    throw new Error('Parsed XML but found 0 <Placemark> elements — file may be corrupt');
 
-                // ── 3. Render in batches ──────────────────────────────
-                const BATCH     = 120;
+                setProgress(50, `Found ${placemarks.length} road segments. Drawing…`);
+                await new Promise(r => setTimeout(r, 20));
+
+                let drawn = 0;
                 const allBounds = [];
-                let   drawn     = 0;
+                const BATCH = 120;
 
                 for (let b = 0; b < placemarks.length; b += BATCH) {
-                    const batch = placemarks.slice(b, b + BATCH);
+                    const slice = Array.from(placemarks).slice(b, b + BATCH);
 
-                    batch.forEach(pm => {
-                        // --- attributes ---
-                        const descEl = pm.querySelector('description');
-                        const attrs  = descEl ? parseDesc(descEl.textContent) : {};
-
-                        // Also try <SimpleData> / <ExtendedData> style KMLs
-                        pm.querySelectorAll('SimpleData').forEach(sd => {
-                            const key = sd.getAttribute('name');
-                            if (key) attrs[key] = sd.textContent.trim();
-                        });
-
-                        // Fallback: use <name> element for road name
-                        if (!attrs['Road__Name'] && !attrs['Road_Name'] && !attrs['Name']) {
-                            const nameEl = pm.querySelector('name');
-                            if (nameEl) attrs['Name'] = nameEl.textContent.trim();
-                        }
-
-                        const cat    = attrs['Road_Cat'] || '';
-                        const color  = colorFor(cat);
+                    slice.forEach(pm => {
+                        // ── FIX #3 — unified attribute extraction ──
+                        const attrs = parseAttributes(pm);
+                        const cat = attrs['Road_Cat'] || attrs['ROAD_CAT'] || attrs['road_cat'] || '';
+                        const color = colorFor(cat);
                         const weight = weightFor(cat);
 
-                        // --- geometry ---
                         pm.querySelectorAll('coordinates').forEach(coordEl => {
                             const latlngs = coordsToLatLngs(coordEl.textContent);
                             if (latlngs.length < 2) return;
 
-                            const line = L.polyline(latlngs, {
-                                color,
-                                weight,
-                                opacity: 0.85
-                            });
-
+                            const line = L.polyline(latlngs, { color, weight, opacity: 0.85 });
                             line.on('click', function (e) {
-                                L.popup({ maxWidth: 300 })
+                                L.popup({ maxWidth: 280 })
                                     .setLatLng(e.latlng)
                                     .setContent(buildPopup(attrs))
                                     .openOn(map);
                             });
-                            line.on('mouseover', function () {
-                                this.setStyle({ weight: weight + 2, opacity: 1 });
-                            });
-                            line.on('mouseout', function () {
-                                this.setStyle({ weight, opacity: 0.85 });
-                            });
+                            line.on('mouseover', function () { this.setStyle({ weight: weight + 2, opacity: 1 }); });
+                            line.on('mouseout', function () { this.setStyle({ weight, opacity: 0.85 }); });
 
                             line.addTo(roadLayer);
                             allBounds.push(...latlngs);
                             drawn++;
                         });
 
-                        // --- stats ---
                         stats.total++;
                         const k = cat.toUpperCase();
-                        if      (k.includes('VR'))                    stats.VR++;
-                        else if (k.includes('MDR'))                   stats.MDR++;
+                        if (k.includes('VR')) stats.VR++;
+                        else if (k.includes('MDR')) stats.MDR++;
                         else if (k.includes('NH') || k.includes('SH')) stats.NH++;
                     });
 
-                    // Progress: 60 % → 97 %
-                    const pct = 60 + Math.round(((b + BATCH) / placemarks.length) * 37);
-                    setProgress(
-                        Math.min(pct, 97),
-                        `Drawing roads… ${Math.min(b + BATCH, placemarks.length).toLocaleString()} / ${placemarks.length.toLocaleString()}`
-                    );
-
-                    // Yield to browser so tiles + progress bar repaint
-                    await new Promise(r => setTimeout(r, 0));
+                    const pct = 50 + Math.round((b / placemarks.length) * 48);
+                    setProgress(pct, `Drawing roads… ${Math.min(b + BATCH, placemarks.length)} / ${placemarks.length}`);
+                    await new Promise(r => setTimeout(r, 0));          // yield for UI
                 }
 
-                // ── 4. Finalise ───────────────────────────────────────
-                setProgress(100, `✓ ${drawn.toLocaleString()} road segments loaded`);
+                setProgress(100, `✓ ${drawn} road segments loaded`);
                 updateStats();
 
                 if (allBounds.length) {
-                    try {
-                        map.fitBounds(L.latLngBounds(allBounds), { padding: [30, 30] });
-                    } catch (e) { /* bounds edge-case — ignore */ }
+                    try { map.fitBounds(L.latLngBounds(allBounds), { padding: [30, 30] }); } catch (e) { }
                 }
 
-                await new Promise(r => setTimeout(r, 500));
+                await new Promise(r => setTimeout(r, 400));
                 hideLoading();
 
             } catch (err) {
-                console.error('[KML] Fatal error:', err);
-                showError(
-                    'Could not load KML',
-                    err.message.replace(/\n/g, '<br>'),
-                    `Make sure the repository is <strong>public</strong> and the file
-                     <code>${KML_FILENAME}</code> exists on the
-                     <code>${GITHUB_BRANCH}</code> branch.<br><br>
-                     For local development, serve with a web server:<br>
-                     <code>python3 -m http.server 8000</code>`
-                );
+                console.error('KML load error:', err);
+                document.getElementById('loading').innerHTML = `
+      <div style="text-align:center;padding:24px;max-width:400px;">
+        <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
+        <div style="font-size:15px;font-weight:600;color:#f78166;margin-bottom:8px;">
+          Could not load KML
+        </div>
+        <div style="font-size:12px;color:#8b949e;margin-bottom:14px;">
+          ${err.message}
+        </div>
+        <div style="font-size:11px;color:#58a6ff;line-height:1.6;">
+          <b>Checklist:</b><br>
+          • Enable <b>GitHub Pages</b> (Settings → Pages → Branch: main)<br>
+          • Or serve locally:
+          <code style="background:#21262d;padding:3px 8px;border-radius:4px;display:inline-block;margin-top:4px;">
+            python3 -m http.server 8000
+          </code>
+        </div>
+      </div>`;
             }
         }
 
