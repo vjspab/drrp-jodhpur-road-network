@@ -105,7 +105,6 @@
             height: 100%;
         }
 
-        /* Loading overlay */
         #loading {
             position: absolute;
             inset: 0;
@@ -176,7 +175,6 @@
             transition: width 0.3s ease;
         }
 
-        /* Stats bar */
         #stats-bar {
             position: absolute;
             top: 14px;
@@ -213,7 +211,6 @@
             margin-top: 2px;
         }
 
-        /* Legend */
         #legend {
             position: absolute;
             bottom: 30px;
@@ -253,7 +250,6 @@
             flex-shrink: 0;
         }
 
-        /* Popup dark theme */
         .leaflet-popup-content-wrapper {
             background: rgba(22, 27, 34, 0.97) !important;
             border: 1px solid #30363d !important;
@@ -307,7 +303,6 @@
             font-weight: 700;
         }
 
-        /* Layer control dark */
         .leaflet-control-layers {
             background: rgba(22, 27, 34, 0.96) !important;
             border: 1px solid #30363d !important;
@@ -333,7 +328,6 @@
 </head>
 
 <body>
-
     <header>
         <div class="header-icon">🗺️</div>
         <div class="header-text">
@@ -346,10 +340,8 @@
             <div class="badge"><span>PWD</span> Rajasthan</div>
         </div>
     </header>
-
     <div id="map-wrap">
         <div id="map"></div>
-
         <div id="loading">
             <div class="spinner"></div>
             <h2>Loading Road Network…</h2>
@@ -359,7 +351,6 @@
                 <div id="progress-bar"></div>
             </div>
         </div>
-
         <div id="stats-bar">
             <div class="stat">
                 <div class="stat-val" id="s-total">—</div>
@@ -378,7 +369,6 @@
                 <div class="stat-lbl">NH / SH</div>
             </div>
         </div>
-
         <div id="legend">
             <h4>Road Category</h4>
             <div class="legend-item">
@@ -401,50 +391,16 @@
             </div>
         </div>
     </div>
-
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
     <script>
-        /* ================================================================
-           FIX SUMMARY
-           ----------------------------------------------------------------
-           1. fetch() now tries a chain of URLs:
-              • relative path  (works on GitHub Pages & local server)
-              • raw.githubusercontent  main branch  (universal fallback)
-              • raw.githubusercontent  master branch
-           2. Default XML namespace is stripped before parsing so that
-              querySelectorAll('Placemark') etc. actually match elements.
-           3. Attribute extraction now reads BOTH
-              <ExtendedData>/<SimpleData> (GIS exports)  AND
-              <description> HTML tables  (Google Earth exports).
-           ================================================================ */
-
-        // ── Basemaps ──────────────────────────────────────────────────
-        const satellite = L.tileLayer(
-            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-            { attribution: 'Tiles © Esri — Maxar, Earthstar Geographics', maxZoom: 19 }
-        );
-        const streets = L.tileLayer(
-            'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-            { attribution: '© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom: 19 }
-        );
-        const hybridLabels = L.tileLayer(
-            'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-            { maxZoom: 19, opacity: 0.9 }
-        );
+        const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri — Maxar, Earthstar Geographics', maxZoom: 19 });
+        const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom: 19 });
+        const hybridLabels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, opacity: 0.9 });
         const hybrid = L.layerGroup([satellite, hybridLabels]);
 
-        const map = L.map('map', {
-            center: [26.52, 72.88], zoom: 9,
-            layers: [satellite], zoomControl: true
-        });
+        const map = L.map('map', { center: [26.52, 72.88], zoom: 9, layers: [satellite], zoomControl: true });
+        L.control.layers({ '🛰️ Satellite': satellite, '🛰️ Satellite + Labels': hybrid, '🏙️ OpenStreetMap': streets }, {}, { position: 'topright', collapsed: false }).addTo(map);
 
-        L.control.layers(
-            { '🛰️ Satellite': satellite, '🛰️ Satellite + Labels': hybrid, '🏙️ OpenStreetMap': streets },
-            {}, { position: 'topright', collapsed: false }
-        ).addTo(map);
-
-        // ── Colour helpers ────────────────────────────────────────────
         const CAT_COLORS = { VR: '#ff6b35', MDR: '#3b82f6', SH: '#a855f7', NH: '#22c55e', ODR: '#eab308' };
 
         function colorFor(cat) {
@@ -463,71 +419,50 @@
             return 1.8;
         }
 
-        // ── KML coordinate parser ─────────────────────────────────────
         function coordsToLatLngs(coordText) {
             return coordText.trim().split(/\s+/).map(c => {
                 const parts = c.split(',').map(Number);
-                return [parts[1], parts[0]];           // lat, lon
+                return [parts[1], parts[0]]; // lat, lon
             }).filter(p => !isNaN(p[0]) && !isNaN(p[1]));
         }
 
-        // ── Attribute extraction (handles BOTH KML styles) ────────────
         function parseAttributes(pm) {
             const a = {};
-
-            // ① ExtendedData > SchemaData > SimpleData   (QGIS / GIS exports)
-            pm.querySelectorAll('SimpleData').forEach(sd => {
-                const n = sd.getAttribute('name');
-                if (n) a[n] = sd.textContent.trim();
-            });
-
-            // ② ExtendedData > Data > value
-            pm.querySelectorAll('Data').forEach(d => {
-                const n = d.getAttribute('name');
-                const v = d.querySelector('value');
-                if (n && v) a[n] = v.textContent.trim();
-            });
-
-            // ③ description HTML table   (Google Earth style)
+            pm.querySelectorAll('SimpleData').forEach(sd => { const n = sd.getAttribute('name'); if (n) a[n] = sd.textContent.trim(); });
+            pm.querySelectorAll('Data').forEach(d => { const n = d.getAttribute('name'); const v = d.querySelector('value'); if (n && v) a[n] = v.textContent.trim(); });
             const descEl = pm.querySelector('description');
             if (descEl) {
                 const raw = descEl.textContent || '';
-                if (raw.includes('<')) {                 // looks like HTML
+                if (raw.includes('<')) {
                     const div = document.createElement('div');
                     div.innerHTML = raw;
                     div.querySelectorAll('tr').forEach(tr => {
                         const tds = tr.querySelectorAll('td');
-                        if (tds.length >= 2)
-                            a[tds[0].textContent.trim()] = tds[1].textContent.trim();
+                        if (tds.length >= 2) a[tds[0].textContent.trim()] = tds[1].textContent.trim();
                     });
                 }
             }
-
-            // ④ Fallback: <name> element
             if (!a['Name'] && !a['Road_Name'] && !a['Road__Name']) {
                 const nameEl = pm.querySelector('name');
                 if (nameEl) a['Name'] = nameEl.textContent.trim();
             }
-
             return a;
         }
 
-        // ── Popup HTML ────────────────────────────────────────────────
         function buildPopup(a) {
             const cat = a['Road_Cat'] || a['ROAD_CAT'] || '—';
             const col = colorFor(cat);
             const name = a['Road__Name'] || a['Road_Name'] || a['Name'] || '—';
             return `
-    <div class="popup-title">${name}</div>
-    <div class="popup-row"><span class="popup-key">Code</span>    <span class="popup-val">${a['Road_Code'] || '—'}</span></div>
-    <div class="popup-row"><span class="popup-key">Category</span><span class="popup-val">${a['Category'] || cat}</span></div>
-    <div class="popup-row"><span class="popup-key">Length</span>  <span class="popup-val">${a['Length'] || '—'} km</span></div>
-    <div class="popup-row"><span class="popup-key">Owner</span>   <span class="popup-val">${a['Road_Owner'] || '—'}</span></div>
-    <div class="popup-row"><span class="popup-key">Block</span>   <span class="popup-val">${a['Block_Name'] || '—'}</span></div>
-    <span class="popup-cat" style="background:${col}22;color:${col};border:1px solid ${col}44;">${cat}</span>`;
+        <div class="popup-title">${name}</div>
+        <div class="popup-row"><span class="popup-key">Code</span>    <span class="popup-val">${a['Road_Code'] || '—'}</span></div>
+        <div class="popup-row"><span class="popup-key">Category</span><span class="popup-val">${a['Category'] || cat}</span></div>
+        <div class="popup-row"><span class="popup-key">Length</span>  <span class="popup-val">${a['Length'] || '—'} km</span></div>
+        <div class="popup-row"><span class="popup-key">Owner</span>   <span class="popup-val">${a['Road_Owner'] || '—'}</span></div>
+        <div class="popup-row"><span class="popup-key">Block</span>   <span class="popup-val">${a['Block_Name'] || '—'}</span></div>
+        <span class="popup-cat" style="background:${col}22;color:${col};border:1px solid ${col}44;">${cat}</span>`;
         }
 
-        // ── Stats ─────────────────────────────────────────────────────
         let stats = { total: 0, VR: 0, MDR: 0, NH: 0 };
         function updateStats() {
             document.getElementById('s-total').textContent = stats.total.toLocaleString();
@@ -536,7 +471,6 @@
             document.getElementById('s-nh').textContent = stats.NH.toLocaleString();
         }
 
-        // ── Progress helpers ──────────────────────────────────────────
         function setProgress(pct, msg) {
             document.getElementById('progress-bar').style.width = pct + '%';
             if (msg) document.getElementById('load-status').textContent = msg;
@@ -547,12 +481,11 @@
             setTimeout(() => el.remove(), 600);
         }
 
-        // ── FIX #1 — Fetch with fallback URL chain ───────────────────
         async function fetchKML() {
             const URLS = [
-                'DRRP_Jodhpur.kml',                                                                        // GitHub Pages / local
-                'https://raw.githubusercontent.com/vjspab/drrp-jodhpur-road-network/main/DRRP_Jodhpur.kml', // main branch
-                'https://raw.githubusercontent.com/vjspab/drrp-jodhpur-road-network/master/DRRP_Jodhpur.kml'// master branch
+                'DRRP_Jodhpur.kml',
+                'https://raw.githubusercontent.com/vjspab/drrp-jodhpur-road-network/main/DRRP_Jodhpur.kml',
+                'https://raw.githubusercontent.com/vjspab/drrp-jodhpur-road-network/master/DRRP_Jodhpur.kml'
             ];
 
             for (const url of URLS) {
@@ -562,7 +495,6 @@
                     const resp = await fetch(url);
                     if (!resp.ok) { console.warn(`${url} → HTTP ${resp.status}`); continue; }
                     const txt = await resp.text();
-                    // Quick sanity: is this actually KML / XML?
                     if (txt.includes('<kml') || txt.includes('<Placemark') || txt.includes('<Document')) {
                         console.log(`KML loaded from: ${url}  (${(txt.length / 1048576).toFixed(1)} MB)`);
                         return txt;
@@ -575,7 +507,6 @@
             throw new Error('Could not fetch DRRP_Jodhpur.kml from any source');
         }
 
-        // ── Main loader ──────────────────────────────────────────────
         async function loadKML() {
             const roadLayer = L.layerGroup().addTo(map);
 
@@ -586,15 +517,16 @@
                 setProgress(35, 'Preparing XML parser…');
                 await new Promise(r => setTimeout(r, 20));
 
-                // ── FIX #2 — Strip default XML namespace so querySelector works ──
                 const text = rawText.replace(/\s+xmlns="[^"]*"/g, '');
 
                 const parser = new DOMParser();
-                const kmlDoc = parser.parseFromString(text, 'application/xml');
-                const placemarks = kmlDoc.querySelectorAll('Placemark');
+                // Use getElementsByTagName to ensure namespaces do not affect queries
+                const kmlDoc = parser.parseFromString(text, 'text/xml');
+                const placemarks = kmlDoc.getElementsByTagName('Placemark');
 
-                if (placemarks.length === 0)
-                    throw new Error('Parsed XML but found 0 <Placemark> elements — file may be corrupt');
+                if (!placemarks || placemarks.length === 0) {
+                    throw new Error("Parsed XML but found 0 elements — file may be corrupt or not a valid KML.");
+                }
 
                 setProgress(50, `Found ${placemarks.length} road segments. Drawing…`);
                 await new Promise(r => setTimeout(r, 20));
@@ -606,16 +538,14 @@
                 for (let b = 0; b < placemarks.length; b += BATCH) {
                     const slice = Array.from(placemarks).slice(b, b + BATCH);
 
-                    batch.forEach(pm => {
-                        const descEl = pm.querySelector('description');
-                        const attrs = descEl ? parseDesc(descEl.textContent) : {};
-                        const cat = attrs['Road_Cat'] || '';
+                    slice.forEach(pm => {
+                        const attrs = parseAttributes(pm);
+                        const cat = attrs['Road_Cat'] || attrs['ROAD_CAT'] || attrs['road_cat'] || '';
                         const color = colorFor(cat);
                         const weight = weightFor(cat);
 
-                        // Collect all LineString coordinate blocks in this Placemark
-                        const coordEls = pm.querySelectorAll('coordinates');
-                        coordEls.forEach(coordEl => {
+                        const coordEls = pm.getElementsByTagName('coordinates');
+                        Array.from(coordEls).forEach(coordEl => {
                             const latlngs = coordsToLatLngs(coordEl.textContent);
                             if (latlngs.length < 2) return;
 
@@ -643,7 +573,7 @@
 
                     const pct = 50 + Math.round((b / placemarks.length) * 48);
                     setProgress(pct, `Drawing roads… ${Math.min(b + BATCH, placemarks.length)} / ${placemarks.length}`);
-                    await new Promise(r => setTimeout(r, 0));          // yield for UI
+                    await new Promise(r => setTimeout(r, 0));
                 }
 
                 setProgress(100, `✓ ${drawn} road segments loaded`);
