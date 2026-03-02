@@ -591,11 +591,6 @@
 
                 const parser = new DOMParser();
                 const kmlDoc = parser.parseFromString(text, 'application/xml');
-
-                // Detect XML parse failure
-                const pe = kmlDoc.querySelector('parsererror');
-                if (pe) console.warn('XML parse note:', pe.textContent.substring(0, 300));
-
                 const placemarks = kmlDoc.querySelectorAll('Placemark');
 
                 if (placemarks.length === 0)
@@ -611,14 +606,16 @@
                 for (let b = 0; b < placemarks.length; b += BATCH) {
                     const slice = Array.from(placemarks).slice(b, b + BATCH);
 
-                    slice.forEach(pm => {
-                        // ── FIX #3 — unified attribute extraction ──
-                        const attrs = parseAttributes(pm);
-                        const cat = attrs['Road_Cat'] || attrs['ROAD_CAT'] || attrs['road_cat'] || '';
+                    batch.forEach(pm => {
+                        const descEl = pm.querySelector('description');
+                        const attrs = descEl ? parseDesc(descEl.textContent) : {};
+                        const cat = attrs['Road_Cat'] || '';
                         const color = colorFor(cat);
                         const weight = weightFor(cat);
 
-                        pm.querySelectorAll('coordinates').forEach(coordEl => {
+                        // Collect all LineString coordinate blocks in this Placemark
+                        const coordEls = pm.querySelectorAll('coordinates');
+                        coordEls.forEach(coordEl => {
                             const latlngs = coordsToLatLngs(coordEl.textContent);
                             if (latlngs.length < 2) return;
 
